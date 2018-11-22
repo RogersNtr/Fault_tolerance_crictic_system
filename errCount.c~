@@ -1,0 +1,10 @@
+#include "errCount.h"
+
+static int ErrCount = 0;
+
+inline int IncErrCount(void){
+	ErrCount+=1;
+	return(ErrCount);
+}
+
+inline
