@@ -4,7 +4,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <math.h>
-
+/*
 int main(int argc, char*argv[]){
     
     while(1){
@@ -20,4 +20,4 @@ int main(int argc, char*argv[]){
             ClearCount();
         }
     }
-}
+}*/

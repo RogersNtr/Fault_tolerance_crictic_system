@@ -1,1 +1,0 @@
-float mean_calculation(int *sensorArray); //sensorArrray: Array of sensor.
