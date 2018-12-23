@@ -1,5 +1,4 @@
-#include "main_thread.h"
-#include "Primary.h"
+#include "../header/main_thread.h"
 
 void * myFunction(void * arg){
 	while(1){

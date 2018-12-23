@@ -19,6 +19,9 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <malloc.h>
+#include "Count.h"
+#include "Primary.h"
+#include "Watchdog.h"
 
 #endif /* MAIN_THREAD_H */
 

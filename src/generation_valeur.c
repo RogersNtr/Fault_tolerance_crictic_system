@@ -17,7 +17,9 @@ void sensor_value(int nber_range){
 }
 
 //Unit Test
+/*
 int main(){
     int nber_range = 10000;
     sensor_value(nber_range);
 }
+ */

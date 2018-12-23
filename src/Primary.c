@@ -1,20 +1,25 @@
-#include <math.h>
-
-#include "Primary.h"
-#include "Count.h"
-
+#include "../header/Primary.h"
 // Calculate the mean of the collected data from sensor, then write them in the 
 //shared file
 
 void * mean_calculation(int nb_iter){
     FILE * lecture = NULL;
-    lecture = fopen("data_sensor", "r");
+    char tableau[100] = "";
+    char tableau2[100] = "";
+    getcwd(tableau, 100);
+    getcwd(tableau2, 100);
+    printf("fct getcwd : %s\n", tableau );
+    strcat(tableau, "/data_sensor");
+    printf("tab2 : %s\n",tableau2);
+    lecture = fopen(tableau, "r");
     float * mean = (float*)malloc(sizeof(float));
     char  chaine[6] = "";
     if (lecture != NULL){
         int end = 0;
         FILE * ecriture = NULL;
-        ecriture = fopen("share_file.txt", "w+");
+        strcat(tableau2, "/exec/share_file.txt");
+        printf("tab2 : %s\n",tableau2);
+        ecriture = fopen(tableau2, "w+");
         do{
            *mean = 0;
             for(int i = 0; i<nb_iter; i++){
@@ -28,7 +33,7 @@ void * mean_calculation(int nb_iter){
             }
            if(end!=1){
             *mean/=nb_iter;
-            fprintf(ecriture, "%d\n", *mean);
+            fprintf(ecriture, "%f\n", *mean);
             printf("mean value : %f\n", *mean);
            }
            sleep(1);
