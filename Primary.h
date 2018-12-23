@@ -1,1 +1,6 @@
-float mean_calculation(int *sensorArray); //sensorArrray: Array of sensor.
+#include<stdio.h>
+#include<stdlib.h>
+#include<pthread.h>
+#include<unistd.h>
+
+void * mean_calculation(int nb_iter);
