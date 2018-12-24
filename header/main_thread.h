@@ -31,6 +31,7 @@
 
 
 void * mean_calculation(int nb_iter);
+void * mean_calculation_BackUp(int nb_iter);
 void * watchDog(void * arg);
 
 #endif /* MAIN_THREAD_H */
