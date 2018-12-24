@@ -12,7 +12,7 @@ int Count = 0;
 long deplacement = 0;
 
 void * watchDog(void * arg);
-void * mean_calculation(int nb_iter);
+struct Checkpoint * mean_calculation(int nb_iter);
 void * mean_calculation_BackUp(int nb_iter);
 
 int main (){
@@ -61,7 +61,7 @@ void * watchDog(void * arg){
     
 }
 
-void * mean_calculation(int nb_iter){
+struct Checkpoint * mean_calculation(int nb_iter){
     
     FILE * lecture = NULL;
     
@@ -76,6 +76,11 @@ void * mean_calculation(int nb_iter){
     
     float * mean = (float*)malloc(sizeof(float));
     char  chaine[6] = "";
+
+	//Checkpoint
+	long int filePointerCheckpoint = -1;
+	struct Checkpoint* checkpoint;
+
     if (lecture != NULL){
         int end = 0;
         FILE * ecriture = NULL;
@@ -92,7 +97,14 @@ void * mean_calculation(int nb_iter){
                     }
                     else{
                     //printf("chaine : %s ", chaine);
-                    *mean+=atoi(chaine);  
+					filePointerCheckpoint = ftell(lecture);
+                 (*checkpoint).cursor_pointer_input = filePointerCheckpoint;
+                 strcpy( (*checkpoint).filename, "data_sensor");
+                 (*checkpoint).cursor_pointer_share_file = ftell(ecriture);
+                    *mean+=atoi(chaine); 
+					if(atoi(chaine) == 0){ // Si c'est 0 , on est tombé sur un caractère pas bon
+                    	return (checkpoint);// du coup, on retourne le checkpoint
+                    	}
                     }
                 }
                if(end!=1){
@@ -120,6 +132,7 @@ void * mean_calculation(int nb_iter){
     }
     fclose(lecture);
     pthread_exit(NULL); // Fin du thread
+	return checkpoint;	
 }
 
 void * mean_calculation_BackUp(int nb_iter){

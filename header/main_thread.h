@@ -30,9 +30,15 @@
 #include "Watchdog.h"*/
 
 
-void * mean_calculation(int nb_iter);
 void * mean_calculation_BackUp(int nb_iter);
 void * watchDog(void * arg);
 
+struct Checkpoint {
+   char  filename[50];
+   long int   cursor_pointer_input;
+   long int cursor_pointer_share_file;
+} Checkpoint;
+
+struct Checkpoint * mean_calculation(int nb_iter);
 #endif /* MAIN_THREAD_H */
 
