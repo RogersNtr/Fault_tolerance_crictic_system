@@ -25,12 +25,12 @@
 #include <stdlib.h>
 #include <malloc.h>
 #include <string.h>
+//#include<ckpt.h>
 /*#include "Count.h"
 #include "Primary.h"
 #include "Watchdog.h"*/
 
 
-void * mean_calculation_BackUp(int nb_iter);
 void * watchDog(void * arg);
 
 struct Checkpoint {
@@ -39,6 +39,10 @@ struct Checkpoint {
    long int cursor_pointer_share_file;
 } Checkpoint;
 
-struct Checkpoint * mean_calculation(int nb_iter);
+void * mean_calculation_BackUp(int nb_iter, struct Checkpoint* resume_point);
+
+void * mean_calculation(int nb_iter);
+
+void mean_backup(int nb_iter, struct Checkpoint* resume_point);
 #endif /* MAIN_THREAD_H */
 
