@@ -11,7 +11,6 @@ pthread_cond_t condition_SF = PTHREAD_COND_INITIALIZER; /* Création de la condi
 pthread_mutex_t mutex_SF = PTHREAD_MUTEX_INITIALIZER; /* Création du mutex sur fichier partagé*/
 
 fpos_t *reading_cursor;
-fpos_t *writing_cursor;
 int nb_iter =1000;
 
 void * watchDog(void * arg);
@@ -27,8 +26,7 @@ int main (){
     int s, s1, s2;
 
     reading_cursor = (fpos_t*)malloc(sizeof(fpos_t));
-    writing_cursor = (fpos_t*)malloc(sizeof(fpos_t));
-    
+   
     pthread_mutex_init(&mutex_cpt,NULL);
     pthread_mutex_init(&mutex_SF,NULL);
     pthread_cond_init(&condition_SF,NULL);
@@ -79,7 +77,7 @@ void * watchDog(void * arg){
             pthread_mutex_unlock (&mutex_cpt); // On déverrouille le mutex 
         }
     }
-    //pthread_exit(NULL); // Fin du thread
+    pthread_exit(NULL); // Fin du thread
     return;
 }
 
@@ -102,16 +100,14 @@ void * mean_calculation(void * arg){
     do{
         pthread_mutex_lock (&mutex_SF); /* On verrouille le mutex */
         lecture = fopen(tableau, "r");
-        ecriture = fopen(tableau2, "w+");
+        ecriture = fopen(tableau2, "a");
         fsetpos(lecture, reading_cursor);
-        fsetpos(ecriture, writing_cursor);
         *mean = 0;
         for(int i = 0; i<nb_iter; i++){
             if(NULL==fgets(chaine, 6, lecture)){
                 end = 1;
             }
             else{
-            //printf("chaine : %s ", chaine);
             *mean+=atoi(chaine);  
             }
         }
@@ -120,8 +116,6 @@ void * mean_calculation(void * arg){
 
         fprintf(ecriture, "%f\n", *mean);
         fgetpos(lecture, reading_cursor);
-        fgetpos(ecriture, writing_cursor);
-        //printf("deplacement : %ld\n", deplacement);
         fclose(ecriture);
         fclose(lecture);
         pthread_mutex_unlock (&mutex_SF); /* On déverrouille le mutex */
@@ -166,10 +160,9 @@ void * mean_calculation_BackUp(void * arg){
             pthread_mutex_lock (&mutex_SF); // On verrouille le mutex 
             pthread_cond_wait (&condition_SF, &mutex_SF); // On attend que la condition soit remplie 
             lecture = fopen(tableau, "r");
-            ecriture = fopen(tableau2, "w+");
+            ecriture = fopen(tableau2, "a");
 
             fsetpos(lecture, reading_cursor);
-            fsetpos(ecriture, writing_cursor);
             printf("Lancement Module de BackUp\n");
             *mean = 0;
             for(int i = 0; i<nb_iter; i++){
@@ -186,8 +179,6 @@ void * mean_calculation_BackUp(void * arg){
                 
                 fprintf(ecriture, "%f\n", *mean);
                 fgetpos(lecture, reading_cursor);
-                fgetpos(ecriture, writing_cursor);
-                //printf("deplacement : %ld\n", deplacement);
                 fclose(ecriture);
                 fclose(lecture);
                 pthread_mutex_unlock (&mutex_SF); // On déverrouille le mutex
