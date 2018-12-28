@@ -27,9 +27,10 @@
 #include <string.h>
 
 
+void * watchDog(void * arg);
 void * mean_calculation(void * arg);
 void * mean_calculation_BackUp(void * arg);
-void * watchDog(void * arg);
+struct timespec timer_creation(int number);
 
 #endif /* MAIN_THREAD_H */
 
