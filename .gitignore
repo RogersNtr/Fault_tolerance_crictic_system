@@ -1,0 +1,5 @@
+/CISC/dist/
+/CISC/build/
+/CISC_1/build/
+*/*.o
+app
