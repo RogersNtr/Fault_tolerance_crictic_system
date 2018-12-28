@@ -10,12 +10,14 @@ pthread_cond_t condition_SF = PTHREAD_COND_INITIALIZER; /* Création de la condi
 pthread_mutex_t mutex_SF = PTHREAD_MUTEX_INITIALIZER; /* Création du mutex sur fichier partagé*/
 
 fpos_t *reading_cursor;/*curseur pour se positioner dans les fichiers*/
-int sliding_window =1000;/* fenêtre glissante pour le calcul de la moyenne (nombre de valeur)*/
+int sliding_window =10;/* fenêtre glissante pour le calcul de la moyenne (nombre de valeur)*/
+float current_mean = 0; //minimum avant crash
 
 /*en-têtes des fontion appelées*/
 void * watchDog(void * arg);
 void * mean_calculation(void * arg);
 void * mean_calculation_BackUp(void * arg);
+void set_mean(float mean_val);
 struct timespec timer_creation(int number);
 
 /**
@@ -65,7 +67,7 @@ int main (){
 
 /**
  * Fonction associée au Thread WatchDog, cette fonction se met en attente de
- * de réponse des threads Primary ou BackUp. Si pas de réponse en 4 sec, le 
+ * réponse des threads Primary ou BackUp. Si pas de réponse en 4 sec, le 
  * watchdog envoit un signal au Backup pour le reveiller.
  * @param arg 
  * @return 
@@ -85,7 +87,7 @@ void * watchDog(void * arg){
         /*Si pas de réponse au bout de ts sec*/
         if (rt == ETIMEDOUT){
             //lancer backup
-            printf("Time out, Launching Back up\n");
+            printf("Time out, Launching Back up\n\n");
             pthread_mutex_lock (&mutex_SF); // On verrouille le mutex 
             pthread_cond_signal (&condition_SF); /* On délivre le signal : condition remplie, lancement backup */
             pthread_mutex_unlock (&mutex_SF); /* On déverrouille le mutex */
@@ -107,7 +109,7 @@ void * watchDog(void * arg){
  */
 void * mean_calculation(void * arg){
     /*création simulation faute temporelle*/
-    printf("lancement Primary\n");
+    printf("\n====>lancement Primary\n");
     int time_fault;
     FILE * lecture = NULL;
     float * mean = (float*)malloc(sizeof(float));
@@ -140,29 +142,46 @@ void * mean_calculation(void * arg){
         *mean = 0;
         
         /*Récupération chaine de caractère puis conversion en int*/
-        for(int i = 0; i<sliding_window; i++){
+        int ind=0;
+        do{
             if(NULL==fgets(chaine, 20, lecture)){
                 end = 1;
             }
             else{
             //Simulation faute en valeurs
-            if(rand()%3000==1)
-                *mean-=150*sliding_window;  
-            else
-                *mean+=atoi(chaine);  
+            if(rand()%3000==1){
+                set_mean(*mean);
+                *mean-=150*sliding_window; 
             }
-        }
+            else{       
+                    //On verifie que c'est un caractere qui se trouve dans les données capteur, 
+                    //si oui, on attribue une moyenne de -10----> simulation faute en valeurs
+                    if(atoi(chaine) == 0){
+                        set_mean(*mean);
+                        *mean=-10;//150*sliding_window;                         
+                        //sleep(1);
+                        break;
+                    }else{
+                        *mean+=atoi(chaine); 
+                    }                     
+                }
+            }
+            if(atoi(chaine) == 0){
+                break;
+            }else
+                ind++;
+        }while(ind<sliding_window);
         /*calcul moyenne si pas la fin du fichier*/
        if(end!=1){
         *mean/=sliding_window;
-        
         /*Faute temporelle probable détectée*/
-        if(*mean<496){
-            printf("mean value : %f\n", *mean);
-            printf("Possible Fault detected, launching Back up...\n");
+        if(*mean==-1){
+            printf("valeur erreur mean value : %f\n", *mean);
+            printf("Possible Fault detected, launching Back up...\n\n");
             
             /*Libération mutex et activation BackUp puis attente retour BackUp*/
             fclose(ecriture);
+            fgetpos(lecture, reading_cursor);
             fclose(lecture);
             pthread_cond_signal (&condition_SF); /* On délivre le signal : condition remplie */
             pthread_cond_signal (&condition_cpt); /* On délivre le signal : condition remplie */
@@ -172,7 +191,7 @@ void * mean_calculation(void * arg){
             ecriture = fopen(tableau2, "r");
             fsetpos(ecriture, tmp);
             while(fgets(chaine, 20, ecriture)!= NULL);
-            printf("mean : %f, chaine : %f\n", *mean, atof(chaine));
+            printf("mean : %f, chaine : %s", *mean, chaine);
             end = (abs((int)(*mean - atof(chaine))));
             printf("end : %d\n", end);
             /* Si différence trop élevée => failure, on lance le back up et on 
@@ -203,7 +222,7 @@ void * mean_calculation(void * arg){
             
             pthread_mutex_unlock (&mutex_SF); /* On déverrouille le mutex */
 
-            printf("mean value : %f\n", *mean);
+            printf("\nmean value : %f\n", *mean);
 
             /*Onc réveille le Watchdog, avec i am alive*/
             pthread_mutex_lock (&mutex_cpt); /* On verrouille le mutex */
@@ -248,7 +267,7 @@ void * mean_calculation_BackUp(void * arg){
          *défaillance s'ative*/
         pthread_mutex_lock (&mutex_SF); // On verrouille le mutex 
         pthread_cond_wait (&condition_SF, &mutex_SF); // On attend que la condition soit remplie     
-        printf("Lancement Module de BackUp\n");
+        printf("=====>Lancement Module de BackUp\n");
         do{
             lecture = fopen(tableau, "r");
             ecriture = fopen(tableau2, "a");
@@ -259,7 +278,9 @@ void * mean_calculation_BackUp(void * arg){
                     end = 1;
                 }
                 else{
-                *mean+=atoi(chaine);  
+                    //printf("chaine backup: %s", chaine);
+                *mean+=atoi(chaine) + current_mean; 
+                current_mean = 0; //on le remetr à 0 
                 }
             }
             if(end!=1){
@@ -301,4 +322,8 @@ struct timespec timer_creation(int number){
     ts.tv_sec += ts.tv_nsec / (1000 * 1000 * 1000);
     ts.tv_nsec %= (1000 * 1000 * 1000);
     return ts;
+}
+
+void set_mean(float mean_val){
+    current_mean = mean_val;
 }

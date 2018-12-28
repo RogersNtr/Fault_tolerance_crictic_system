@@ -8,7 +8,7 @@ void sensor_value(int nber_range){
      * nber_range: the function generates  numbers between[0, nber_range]
      * return : print the resulting generate value in a file.
     */
-   FILE* data_file=fopen("sensor_data.txt", "w+");
+   FILE* data_file=fopen("data_sensor", "w+");
    int rand_nber=0;
    for(int i=0; i<=nber_range;i++){
        rand_nber = rand()%nber_range + 1;

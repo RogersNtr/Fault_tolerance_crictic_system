@@ -31,6 +31,6 @@ void * watchDog(void * arg);
 void * mean_calculation(void * arg);
 void * mean_calculation_BackUp(void * arg);
 struct timespec timer_creation(int number);
-
+void set_mean(float mean_val);
 #endif /* MAIN_THREAD_H */
 
