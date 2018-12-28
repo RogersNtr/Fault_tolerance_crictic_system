@@ -4,5 +4,5 @@ Implementation of  faults tolerance solving for critical systems in C.
 # Compilation
 make app
 
-#Lancement de l'application
+# Lancement de l'application
 ./app
