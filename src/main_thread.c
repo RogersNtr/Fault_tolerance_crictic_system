@@ -12,6 +12,7 @@ pthread_mutex_t mutex_SF = PTHREAD_MUTEX_INITIALIZER; /* Création du mutex sur 
 fpos_t *reading_cursor;/*curseur pour se positioner dans les fichiers*/
 int sliding_window =10;/* fenêtre glissante pour le calcul de la moyenne (nombre de valeur)*/
 float current_mean = 0; //minimum avant crash
+int count_affichage = 0; //Compte le nombre de passages dans le primaire et le backup.
 
 /*en-têtes des fontion appelées*/
 void * watchDog(void * arg);
@@ -109,7 +110,7 @@ void * watchDog(void * arg){
  */
 void * mean_calculation(void * arg){
     /*création simulation faute temporelle*/
-    printf("\n====>lancement Primary\n");
+    printf("\n====>Lancement Primary\n");
     int time_fault;
     FILE * lecture = NULL;
     float * mean = (float*)malloc(sizeof(float));
@@ -148,12 +149,13 @@ void * mean_calculation(void * arg){
                 end = 1;
             }
             else{
+                printf("valeur_capteur: %s", chaine); 
             //Simulation faute en valeurs
-            if(rand()%3000==1){
-                set_mean(*mean);
-                *mean-=150*sliding_window; 
-            }
-            else{       
+            //if(rand()%3000==1){
+                //set_mean(*mean);
+                //*mean-=150*sliding_window; 
+            //}
+            //else{       
                     //On verifie que c'est un caractere qui se trouve dans les données capteur, 
                     //si oui, on attribue une moyenne de -10----> simulation faute en valeurs
                     if(atoi(chaine) == 0){
@@ -163,8 +165,8 @@ void * mean_calculation(void * arg){
                         break;
                     }else{
                         *mean+=atoi(chaine); 
-                    }                     
-                }
+                    }                    
+                //}
             }
             if(atoi(chaine) == 0){
                 break;
@@ -173,10 +175,11 @@ void * mean_calculation(void * arg){
         }while(ind<sliding_window);
         /*calcul moyenne si pas la fin du fichier*/
        if(end!=1){
+           count_affichage++;
         *mean/=sliding_window;
         /*Faute temporelle probable détectée*/
-        if(*mean==-1){
-            printf("valeur erreur mean value : %f\n", *mean);
+        if(*mean <= 0){
+            //printf("valeur erreur mean value : %f\n", *mean);
             printf("Possible Fault detected, launching Back up...\n\n");
             
             /*Libération mutex et activation BackUp puis attente retour BackUp*/
@@ -190,20 +193,21 @@ void * mean_calculation(void * arg){
             /*Vérification Valeurs*/
             ecriture = fopen(tableau2, "r");
             fsetpos(ecriture, tmp);
-            while(fgets(chaine, 20, ecriture)!= NULL);
-            printf("mean : %f, chaine : %s", *mean, chaine);
-            end = (abs((int)(*mean - atof(chaine))));
-            printf("end : %d\n", end);
+            pthread_exit(NULL);
+            //while(fgets(chaine, 20, ecriture)!= NULL);
+            // printf("mean : %f, chaine : %s", *mean, chaine);
+            // end = (abs((int)(*mean - atof(chaine))));
+            // printf("end : %d\n", end);
             /* Si différence trop élevée => failure, on lance le back up et on 
              arrête le primary*/
-            if(end>1){
+            /* if(end>1){
                 fclose(ecriture);
                 printf("Primary Failure, ending Primary and switching to Back up System\n");
-                pthread_mutex_unlock (&mutex_SF); /* On déverrouille le mutex */
+                pthread_mutex_unlock (&mutex_SF); /* On déverrouille le mutex 
                 pthread_exit(NULL);
-            }
+            } */
             /*sinon on continue avec le primaire*/
-            else{
+            if(end<=1){
                 fgetpos(lecture, reading_cursor);
                 fclose(ecriture);
                 pthread_mutex_unlock (&mutex_SF); /* On déverrouille le mutex */
@@ -221,8 +225,9 @@ void * mean_calculation(void * arg){
             fclose(lecture);
             
             pthread_mutex_unlock (&mutex_SF); /* On déverrouille le mutex */
-
-            printf("\nmean value : %f\n", *mean);
+            printf("+++++++mean value : %f,\t", *mean);
+            printf("count affichage primaire : %d\n\n", count_affichage);
+            
 
             /*Onc réveille le Watchdog, avec i am alive*/
             pthread_mutex_lock (&mutex_cpt); /* On verrouille le mutex */
@@ -267,7 +272,8 @@ void * mean_calculation_BackUp(void * arg){
          *défaillance s'ative*/
         pthread_mutex_lock (&mutex_SF); // On verrouille le mutex 
         pthread_cond_wait (&condition_SF, &mutex_SF); // On attend que la condition soit remplie     
-        printf("=====>Lancement Module de BackUp\n");
+        printf("=====> Lancement Module de BackUp\n");
+        
         do{
             lecture = fopen(tableau, "r");
             ecriture = fopen(tableau2, "a");
@@ -278,7 +284,7 @@ void * mean_calculation_BackUp(void * arg){
                     end = 1;
                 }
                 else{
-                    //printf("chaine backup: %s", chaine);
+                printf("valeur_capteur_bu: %s", chaine);
                 *mean+=atoi(chaine) + current_mean; 
                 current_mean = 0; //on le remetr à 0 
                 }
@@ -288,7 +294,9 @@ void * mean_calculation_BackUp(void * arg){
                 fprintf(ecriture, "%f\n", *mean);
                 fgetpos(lecture, reading_cursor);
                 pthread_cond_signal (&condition_SF); /* On délivre le signal : condition remplie */
-                printf("BU mean value : %f\n", *mean);
+                count_affichage++;
+                printf("+++++++BU mean value : %f,\t", *mean);
+                printf("count affichage backup:%d\n\n", count_affichage);
            }
             fclose(ecriture);
             fclose(lecture);
