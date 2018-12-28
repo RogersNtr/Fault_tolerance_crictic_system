@@ -78,11 +78,11 @@ void * watchDog(void * arg){
         }
     }
     pthread_exit(NULL); // Fin du thread
-    return;
 }
 
 void * mean_calculation(void * arg){
     
+    int time_fault;
     FILE * lecture = NULL;
     printf("lancement Primary\n");
     srand(time(NULL));
@@ -93,50 +93,85 @@ void * mean_calculation(void * arg){
     strcat(tableau, "/data_sensor");
     
     float * mean = (float*)malloc(sizeof(float));
-    char  chaine[6] = "";
+    char  chaine[20] = "";
+    fpos_t *tmp= (fpos_t*)malloc(sizeof(fpos_t));
     int end = 0;
     FILE * ecriture = NULL;
     strcat(tableau2, "/exec/share_file.txt");
+    ecriture = fopen(tableau2, "w+");
+    fclose(ecriture);
     do{
         pthread_mutex_lock (&mutex_SF); /* On verrouille le mutex */
         lecture = fopen(tableau, "r");
-        ecriture = fopen(tableau2, "a");
+        ecriture = fopen(tableau2, "a+");
         fsetpos(lecture, reading_cursor);
+        fgetpos(ecriture, tmp);
         *mean = 0;
         for(int i = 0; i<nb_iter; i++){
-            if(NULL==fgets(chaine, 6, lecture)){
+            if(NULL==fgets(chaine, 20, lecture)){
                 end = 1;
             }
             else{
-            *mean+=atoi(chaine);  
+            //Simulation faute en valeurs
+            if(rand()%3000==1)
+                *mean-=150*nb_iter;  
+            else
+                *mean+=atoi(chaine);  
             }
         }
        if(end!=1){
         *mean/=nb_iter;
+        if(*mean<400){
+            printf("mean value : %f\n", *mean);
+            printf("Valeurs étranges : vérification par Back up...\n");
+            fclose(ecriture);
+            fclose(lecture);
+            pthread_cond_signal (&condition_SF); /* On délivre le signal : condition remplie */
+            pthread_cond_signal (&condition_cpt); /* On délivre le signal : condition remplie */
+            //pthread_mutex_unlock (&mutex_SF); 
+            pthread_cond_wait (&condition_SF, &mutex_SF); // On attend que la condition soit remplie 
+            //pthread_mutex_lock (&mutex_SF); /* On verrouille le mutex */
+            ecriture = fopen(tableau2, "r");
+            
+            fsetpos(ecriture, tmp);
+            while(fgets(chaine, 20, ecriture)!= NULL);
+            printf("mean : %f, chaine : %f\n", *mean, atof(chaine));
+            end = (*mean!=atof(chaine));
+            if(end){
+                
+                fclose(ecriture);
+                printf("Primary défaillant\n");
+                pthread_mutex_unlock (&mutex_SF); /* On déverrouille le mutex */
+                pthread_exit(NULL);
+            }
+        }
+        else {
+            fprintf(ecriture, "%f\n", *mean);
+            fgetpos(lecture, reading_cursor);
+            fclose(ecriture);
+            fclose(lecture);
+            pthread_mutex_unlock (&mutex_SF); /* On déverrouille le mutex */
 
-        fprintf(ecriture, "%f\n", *mean);
-        fgetpos(lecture, reading_cursor);
-        fclose(ecriture);
-        fclose(lecture);
-        pthread_mutex_unlock (&mutex_SF); /* On déverrouille le mutex */
+            printf("mean value : %f\n", *mean);
 
-        printf("mean value : %f\n", *mean);
-
-        pthread_mutex_lock (&mutex_cpt); /* On verrouille le mutex */
-        pthread_cond_signal (&condition_cpt); /* On délivre le signal : condition remplie */
-        pthread_mutex_unlock (&mutex_cpt); /* On déverrouille le mutex */
+            pthread_mutex_lock (&mutex_cpt); /* On verrouille le mutex */
+            pthread_cond_signal (&condition_cpt); /* On délivre le signal : condition remplie */
+            pthread_mutex_unlock (&mutex_cpt); /* On déverrouille le mutex */
+            }
        }
         else {
                 fclose(ecriture);
                 fclose(lecture);
                 pthread_mutex_unlock (&mutex_SF);
             }
-       sleep(rand()%6);
-       //sleep(1);
+        //Simulation faute temporelle
+        time_fault = rand()%100;
+        if(time_fault == 1)
+           sleep(10);
+        else sleep(1);
     }while(end!=1);
     printf("Primary ended\n");
     pthread_exit(NULL); // Fin du thread
-    return;
 }
 
 void * mean_calculation_BackUp(void * arg){
@@ -155,15 +190,13 @@ void * mean_calculation_BackUp(void * arg){
     FILE * ecriture = NULL;
     strcat(tableau2, "/exec/share_file.txt");
     do{
-        
+        pthread_mutex_lock (&mutex_SF); // On verrouille le mutex 
+        pthread_cond_wait (&condition_SF, &mutex_SF); // On attend que la condition soit remplie     
+        printf("Lancement Module de BackUp\n");
         do{
-            pthread_mutex_lock (&mutex_SF); // On verrouille le mutex 
-            pthread_cond_wait (&condition_SF, &mutex_SF); // On attend que la condition soit remplie 
             lecture = fopen(tableau, "r");
             ecriture = fopen(tableau2, "a");
-
             fsetpos(lecture, reading_cursor);
-            printf("Lancement Module de BackUp\n");
             *mean = 0;
             for(int i = 0; i<nb_iter; i++){
                 if(NULL==fgets(chaine, 6, lecture)){
@@ -176,19 +209,15 @@ void * mean_calculation_BackUp(void * arg){
             }
             if(end!=1){
                 *mean/=nb_iter;
-                
                 fprintf(ecriture, "%f\n", *mean);
                 fgetpos(lecture, reading_cursor);
-                fclose(ecriture);
-                fclose(lecture);
-                pthread_mutex_unlock (&mutex_SF); // On déverrouille le mutex
+                pthread_cond_signal (&condition_SF); /* On délivre le signal : condition remplie */
                 printf("BU mean value : %f\n", *mean);
            }
-            else {
-                fclose(ecriture);
-                fclose(lecture);
-                pthread_mutex_unlock (&mutex_SF);
-            }
+            fclose(ecriture);
+            fclose(lecture);
+            pthread_mutex_unlock (&mutex_SF);
+            
             ts = timer_creation(2);
             pthread_mutex_lock (&mutex_cpt); // On verrouille le mutex 
             rt = pthread_cond_timedwait (&condition_cpt, &mutex_cpt, &ts); // On attend que la condition soit remplie            }while(end!=1);
@@ -197,7 +226,6 @@ void * mean_calculation_BackUp(void * arg){
     }while(end!=1);
     printf("Backup ended\n");
     pthread_exit(NULL); // Fin du thread
-    return;
 }
 
 struct timespec timer_creation(int number){
